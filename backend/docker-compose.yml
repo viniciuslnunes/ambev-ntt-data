@@ -1,0 +1,89 @@
+version: '3.8'
+name: developerevaluation
+
+services:
+  webapi:
+    container_name: developerevaluation_webapi
+    build:
+      context: .
+      dockerfile: src/Ambev.DeveloperEvaluation.WebApi/Dockerfile
+      args:
+        BUILD_CONFIGURATION: Debug
+        BUILD_TIMESTAMP: ${BUILD_TIMESTAMP:-$(date +%s)}
+    user: root
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__PostgresConnection=Host=postgres;Port=5432;Database=developer_evaluation;Username=developer;Password=ev@luAt10n
+      - ConnectionStrings__Redis=redis:6379,password=ev@luAt10n
+      - ConnectionStrings__RabbitMQ=amqp://developer:ev%40luAt10n@rabbitmq:5672/
+      - Database__Migrate=true
+      - Database__Seed=true
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    volumes:
+      - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
+      - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
+      - ./certs:/https:ro
+    depends_on:
+      - postgres
+      - mongodb
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+
+  postgres:
+    container_name: developerevaluation_postgresql
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: developer_evaluation
+      POSTGRES_USER: developer
+      POSTGRES_PASSWORD: ev@luAt10n
+    ports:
+      - "5432:5432"
+    volumes:
+      - developerevaluation_pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  mongodb:
+    container_name: developerevaluation_mongodb
+    image: mongo:latest
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: developer
+      MONGO_INITDB_ROOT_PASSWORD: ev@luAt10n
+    ports:
+      - "27017:27017"
+    volumes:
+      - developerevaluation_mongodb_data:/data/db
+      - developerevaluation_mongodb_config:/data/configdb
+    restart: unless-stopped
+
+  redis:
+    container_name: developerevaluation_redis
+    image: redis:latest
+    command: redis-server --requirepass ev@luAt10n
+    ports:
+      - "6379:6379"
+    volumes:
+      - developerevaluation_redis_data:/data
+    restart: unless-stopped
+
+  rabbitmq:
+    container_name: developerevaluation_rabbitmq
+    image: rabbitmq:management
+    environment:
+      RABBITMQ_DEFAULT_USER: developer
+      RABBITMQ_DEFAULT_PASS: ev@luAt10n
+    ports:
+      - "5672:5672" # Porta AMQP
+      - "15672:15672" # Porta do Management UI
+    volumes:
+      - developerevaluation_rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+
+volumes:
+  developerevaluation_pgdata:
+  developerevaluation_mongodb_data:
+  developerevaluation_mongodb_config:
+  developerevaluation_redis_data:
+  developerevaluation_rabbitmq_data:
